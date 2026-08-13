@@ -1,0 +1,38 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - run: npm test
+      - run: npm run check
+
+      - name: Exercise the action
+        id: traceplain
+        uses: ./
+        with:
+          path: test/fixtures/codex-run.jsonl
+          output: test-output/handback.md
+
+      - name: Verify bounded output
+        shell: bash
+        run: |
+          test "${{ steps.traceplain.outputs.verdict }}" = "review_needed"
+          test "${{ steps.traceplain.outputs.format }}" = "codex-exec-jsonl"
+          grep -q "REVIEW NEEDED" test-output/handback.md
+          ! grep -q "private-command-argument" test-output/handback.md

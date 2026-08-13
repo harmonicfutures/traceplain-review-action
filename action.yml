@@ -1,0 +1,42 @@
+name: Traceplain Agent Review
+description: Turn Codex JSONL or OpenTelemetry GenAI JSON into a conservative Markdown handback inside the runner.
+author: Traceplain
+
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  path:
+    description: Path to a Codex JSONL/NDJSON or OTLP JSON record.
+    required: true
+  output:
+    description: Markdown handback path. Relative paths resolve from the workspace.
+    required: false
+    default: traceplain-handback.md
+  detail:
+    description: Use safe to suppress imported names, or names to include bounded tool, model, and service names.
+    required: false
+    default: safe
+  max-bytes:
+    description: Maximum input size accepted before the action stops.
+    required: false
+    default: '10485760'
+  fail-on-review:
+    description: Set true to fail the step when the supplied record contains an explicit failure, denial, change, or unset OTLP status.
+    required: false
+    default: 'false'
+
+outputs:
+  handback-path:
+    description: Absolute path to the generated Markdown handback.
+  verdict:
+    description: review_needed or no_explicit_failure.
+  format:
+    description: codex-exec-jsonl or opentelemetry-otlp-json.
+  event-count:
+    description: Number of terminal events or spans projected into the handback.
+
+runs:
+  using: node24
+  main: dist/index.js

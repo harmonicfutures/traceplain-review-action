@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"synthetic-thread"}
+{"type":"item.completed","item":{"id":"item-1","type":"command_execution","command":"npm test -- private-command-argument","aggregated_output":"4 tests passed","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item-2","type":"file_change","changes":[{"path":"src/example.js","kind":"update"}],"status":"completed"}}
+{"type":"item.completed","item":{"id":"item-3","type":"agent_message","text":"The synthetic change is finished."}}

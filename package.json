@@ -1,0 +1,14 @@
+{
+  "name": "traceplain-agent-review-action",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zero-dependency GitHub Action for conservative human review of Codex and OTLP agent records.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/review.cjs && node --check dist/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
