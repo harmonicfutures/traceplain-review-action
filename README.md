@@ -1,6 +1,6 @@
 # Traceplain Agent Review Action
 
-Create a conservative Markdown handback from a Codex `exec --json` record or an OpenTelemetry OTLP/JSON trace. The action runs inside your GitHub-hosted or self-hosted runner and makes no network request to Traceplain. It does not upload the input record, create an approval, or claim that the record is complete.
+Create a conservative Markdown handback from a Codex `exec --json` record, Claude Code stream JSON, or an OpenTelemetry OTLP/JSON trace. The action runs inside your GitHub-hosted or self-hosted runner and makes no network request to Traceplain. It does not upload the input record, create an approval, or claim that the record is complete.
 
 ## Use it
 
@@ -27,6 +27,18 @@ OTLP/JSON works with the same action:
     detail: safe
 ```
 
+Claude Code stream JSON works without uploading the transcript:
+
+```yaml
+- name: Capture Claude Code stream
+  run: claude -p --verbose --output-format stream-json "run the relevant tests" > artifacts/claude-run.jsonl
+
+- name: Create Claude Code handback
+  uses: harmonicfutures/traceplain-review-action@v1
+  with:
+    path: artifacts/claude-run.jsonl
+```
+
 The default `safe` detail mode suppresses imported command text, paths, messages, model names, service names, and tool names. Set `detail: names` only when those bounded identifiers are appropriate for the resulting artifact.
 
 ## What the handback says
@@ -45,7 +57,7 @@ The Markdown output separates:
 
 | Input | Default | Meaning |
 | --- | --- | --- |
-| `path` | required | Codex JSONL/NDJSON or OTLP JSON file inside the runner. |
+| `path` | required | Codex JSONL/NDJSON, Claude Code stream JSON, or OTLP JSON file inside the runner. |
 | `output` | `traceplain-handback.md` | Markdown output path. |
 | `detail` | `safe` | `safe` or `names`. |
 | `max-bytes` | `10485760` | Maximum accepted input size. |
@@ -67,6 +79,8 @@ Review logs before using `detail: names` or uploading the output as an artifact.
 ## Free browser reviewer
 
 For interactive local review, safe examples, and printable handbacks, use [Traceplain](https://traceplain.zakgov.com/?utm_source=github&utm_medium=action-readme&utm_campaign=traceplain-review-action). The optional A$29 Review Kit is separate from this free action.
+
+Format-specific browser guides are available for [Codex JSONL](https://traceplain.zakgov.com/codex-exec-jsonl-viewer), [Claude Code JSONL](https://traceplain.zakgov.com/claude-code-jsonl-viewer), and [OpenTelemetry GenAI traces](https://traceplain.zakgov.com/opentelemetry-genai-trace-viewer).
 
 ## License
 

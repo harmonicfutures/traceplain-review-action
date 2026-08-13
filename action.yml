@@ -1,5 +1,5 @@
 name: Traceplain Agent Review
-description: Turn Codex JSONL or OpenTelemetry GenAI JSON into a conservative Markdown handback inside the runner.
+description: Turn Codex, Claude Code, or OpenTelemetry agent records into a conservative Markdown handback inside the runner.
 author: Traceplain
 
 branding:
@@ -8,7 +8,7 @@ branding:
 
 inputs:
   path:
-    description: Path to a Codex JSONL/NDJSON or OTLP JSON record.
+    description: Path to a Codex JSONL/NDJSON, Claude Code stream JSON, or OTLP JSON record.
     required: true
   output:
     description: Markdown handback path. Relative paths resolve from the workspace.
@@ -33,7 +33,7 @@ outputs:
   verdict:
     description: review_needed or no_explicit_failure.
   format:
-    description: codex-exec-jsonl or opentelemetry-otlp-json.
+    description: codex-exec-jsonl, claude-code-stream-json, or opentelemetry-otlp-json.
   event-count:
     description: Number of terminal events or spans projected into the handback.
 

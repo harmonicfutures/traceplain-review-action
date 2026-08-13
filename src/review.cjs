@@ -120,6 +120,85 @@ function projectCodex(value, detail) {
   };
 }
 
+function claudeBlocks(envelope) {
+  const content = envelope?.message?.content;
+  if (Array.isArray(content)) return content;
+  if (typeof content === 'string') return [{ type: 'text', text: content }];
+  return [];
+}
+
+function isClaudeRecord(value) {
+  const envelopes = Array.isArray(value) ? value : [value];
+  return envelopes.some((envelope) => {
+    const type = lower(envelope?.type);
+    if (type === 'result' && ('result' in (envelope || {}) || 'is_error' in (envelope || {}))) return true;
+    if (!['assistant', 'user'].includes(type)) return false;
+    return claudeBlocks(envelope).some((block) => ['tool_use', 'tool_result', 'text'].includes(lower(block?.type)));
+  });
+}
+
+function projectClaude(value, detail) {
+  const envelopes = Array.isArray(value) ? value : [value];
+  const observed = [];
+  const claims = [];
+  const attention = [];
+  const calls = new Map();
+  const pending = [];
+  let eventCount = 0;
+
+  for (const envelope of envelopes) {
+    const envelopeType = lower(envelope?.type);
+    if (envelopeType === 'assistant') {
+      for (const block of claudeBlocks(envelope)) {
+        const blockType = lower(block?.type);
+        if (blockType === 'tool_use') {
+          eventCount += 1;
+          const tool = boundedName(block?.name);
+          const summary = detail === 'names' && tool ? `Claude Code tool call: ${tool}` : 'Claude Code tool call';
+          const item = { id: block?.id, tool, summary, result: null };
+          pending.push(item);
+          if (item.id) calls.set(item.id, item);
+          if (['write', 'edit', 'multiedit', 'notebookedit'].includes(lower(tool))) {
+            attention.push('A file-oriented Claude Code tool call requires human verification against the repository.');
+          }
+        } else if (blockType === 'text' && typeof block?.text === 'string' && block.text.trim()) {
+          eventCount += 1;
+          claims.push('The record contains an assistant-authored message; its contents are not treated as proof.');
+        }
+      }
+    } else if (envelopeType === 'user') {
+      for (const block of claudeBlocks(envelope)) {
+        if (lower(block?.type) !== 'tool_result') continue;
+        const call = block?.tool_use_id ? calls.get(block.tool_use_id) : null;
+        const failed = block?.is_error === true;
+        if (call) {
+          call.result = failed ? 'ERROR' : 'RECORDED';
+          if (failed) attention.push('A Claude Code tool result records an error.');
+        } else {
+          eventCount += 1;
+          observed.push(`Claude Code tool result has no matching tool call in the supplied record (status: ${failed ? 'ERROR' : 'RECORDED'}).`);
+          attention.push('A tool result could not be paired with a tool call in the supplied record.');
+        }
+      }
+    } else if (envelopeType === 'result') {
+      eventCount += 1;
+      const failed = envelope?.is_error === true || lower(envelope?.subtype).startsWith('error') || isFailureStatus(envelope?.subtype);
+      observed.push(`Claude Code final result reached a terminal event (status: ${failed ? 'ERROR' : 'RECORDED'}).`);
+      if (envelope?.result !== undefined) claims.push('The record contains a final Claude Code result summary; its contents are not treated as proof.');
+      if (failed) attention.push('The Claude Code final result records an error.');
+    }
+  }
+
+  for (const call of pending) {
+    const status = call.result || 'MISSING';
+    observed.push(`${call.summary} has ${status === 'MISSING' ? 'no matching result' : `a ${status} result`} in the supplied record.`);
+    if (status === 'MISSING') attention.push('A Claude Code tool call has no matching result in the supplied record.');
+  }
+
+  if (eventCount === 0) throw new Error('No projectable Claude Code stream events were found.');
+  return { format: 'claude-code-stream-json', eventCount, observed, claims, attention };
+}
+
 function anyValue(value) {
   if (value == null || typeof value !== 'object') return value;
   if ('stringValue' in value) return value.stringValue;
@@ -186,8 +265,9 @@ function projectRecord(value, detail = 'safe') {
   if (!['safe', 'names'].includes(detail)) throw new Error('detail must be safe or names.');
   const first = Array.isArray(value) ? value[0] : value;
   if (first?.resourceSpans || value?.resourceSpans) return finalize(projectOtel(value, detail));
+  if (isClaudeRecord(value)) return finalize(projectClaude(value, detail));
   if (first?.type || first?.item) return finalize(projectCodex(value, detail));
-  throw new Error('Unsupported record. Expected Codex exec JSONL/NDJSON or OTLP JSON resourceSpans.');
+  throw new Error('Unsupported record. Expected Codex exec JSONL/NDJSON, Claude Code stream JSON, or OTLP JSON resourceSpans.');
 }
 
 function finalize(projection) {
@@ -259,7 +339,7 @@ function reviewFile(filePath, options = {}) {
   const text = readRecord(filePath, maxBytes);
   const parsed = parseDocument(text);
   const projection = projectRecord(parsed.value, detail);
-  const handback = renderHandback(projection, path.basename(filePath));
+  const handback = renderHandback(projection, detail === 'safe' ? 'supplied record' : path.basename(filePath));
   return { projection, handback };
 }
 

@@ -36,3 +36,19 @@ jobs:
           test "${{ steps.traceplain.outputs.format }}" = "codex-exec-jsonl"
           grep -q "REVIEW NEEDED" test-output/handback.md
           ! grep -q "private-command-argument" test-output/handback.md
+
+      - name: Exercise Claude Code support
+        id: traceplain-claude
+        uses: ./
+        with:
+          path: test/fixtures/claude-code-stream.jsonl
+          output: test-output/claude-handback.md
+
+      - name: Verify bounded Claude output
+        shell: bash
+        run: |
+          test "${{ steps.traceplain-claude.outputs.verdict }}" = "review_needed"
+          test "${{ steps.traceplain-claude.outputs.format }}" = "claude-code-stream-json"
+          test "${{ steps.traceplain-claude.outputs.event-count }}" = "3"
+          grep -q "REVIEW NEEDED" test-output/claude-handback.md
+          ! grep -q "private-example\|private result\|private-command\|Private completion" test-output/claude-handback.md
