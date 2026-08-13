@@ -10,7 +10,11 @@ Create a conservative Markdown handback from a Codex `exec --json` record, Claud
   uses: harmonicfutures/traceplain-review-action@v1
   with:
     path: artifacts/codex-run.jsonl
+```
 
+The bounded handback appears directly in the GitHub Actions job summary by default. It is also written to `traceplain-handback.md`; upload that file only when you need a separately retained artifact:
+
+```yaml
 - name: Upload handback
   uses: actions/upload-artifact@v4
   with:
@@ -63,14 +67,16 @@ The Markdown output separates:
 | `detail` | `safe` | `safe` or `names`. |
 | `max-bytes` | `10485760` | Maximum accepted input size. |
 | `fail-on-review` | `false` | Fail the step when the verdict is `review_needed`. |
+| `step-summary` | `true` | Append the bounded handback to the native GitHub Actions job summary. |
 
-The action exposes `handback-path`, `verdict`, `format`, and `event-count` outputs.
+The action exposes `handback-path`, `verdict`, `format`, `event-count`, and `summary-written` outputs.
 
 ## Security and evidence boundary
 
 - No dependency installation and no outbound request are performed by the action.
 - The input is read only from the runner filesystem.
 - The generated Markdown remains on the runner unless your workflow explicitly uploads, commits, or publishes it.
+- The native job summary is visible to people who can view that workflow run; set `step-summary: false` when even the bounded safe-mode handback should remain only in the runner filesystem.
 - Raw imported values are not printed to workflow commands or logs.
 - Input size and projected event count are bounded.
 - Unsupported formats stop with an error instead of being guessed.

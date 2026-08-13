@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 const { parseDocument, projectRecord, renderHandback, reviewFile } = require('../src/review.cjs');
 
@@ -117,4 +118,34 @@ test('parses NDJSON and writes a bounded handback', () => {
   const { projection, handback } = reviewFile(source, { detail: 'safe' });
   assert.equal(projection.verdict, 'no_explicit_failure');
   assert.doesNotMatch(handback, /do-not-leak|token secret|private completion claim/);
+});
+
+test('the action writes the safe handback to the native step summary by default', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'traceplain-summary-'));
+  const source = path.join(directory, 'run.jsonl');
+  const summary = path.join(directory, 'summary.md');
+  const outputs = path.join(directory, 'outputs.txt');
+  fs.writeFileSync(source, JSON.stringify({
+    type: 'item.completed',
+    item: { type: 'command_execution', status: 'completed', exit_code: 0, command: 'private command' },
+  }));
+  fs.writeFileSync(summary, '');
+  fs.writeFileSync(outputs, '');
+
+  const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'dist', 'index.js')], {
+    cwd: directory,
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GITHUB_WORKSPACE: directory,
+      GITHUB_STEP_SUMMARY: summary,
+      GITHUB_OUTPUT: outputs,
+      INPUT_PATH: 'run.jsonl',
+    },
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(fs.readFileSync(summary, 'utf8'), /# Traceplain agent review/);
+  assert.doesNotMatch(fs.readFileSync(summary, 'utf8'), /private command/);
+  assert.match(fs.readFileSync(outputs, 'utf8'), /summary-written=true/);
 });
