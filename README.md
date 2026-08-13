@@ -48,6 +48,7 @@ The Markdown output separates:
 - **Observed** terminal events or spans present in the supplied record.
 - **Agent-reported** completion messages, which are not treated as proof.
 - **Attention** signals such as failure, denial, file change, OTLP `ERROR`, or OTLP `UNSET` status.
+- **Schema drift** as a review signal when Claude record or content-block types are not interpreted, instead of silently dropping them.
 - **Unknowns** that cannot be inferred from an incomplete or externally produced record.
 - The **human decision** that remains after the projection.
 
@@ -73,6 +74,7 @@ The action exposes `handback-path`, `verdict`, `format`, and `event-count` outpu
 - Raw imported values are not printed to workflow commands or logs.
 - Input size and projected event count are bounded.
 - Unsupported formats stop with an error instead of being guessed.
+- Unrecognised Claude structural types are counted in `safe` mode; their bounded type names appear only with `detail: names`.
 
 Review logs before using `detail: names` or uploading the output as an artifact. Repository maintainers still control workflow permissions, artifact retention, and acceptance of any agent-produced change.
 

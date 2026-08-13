@@ -144,10 +144,18 @@ function projectClaude(value, detail) {
   const attention = [];
   const calls = new Map();
   const pending = [];
+  const unreviewedTypes = new Set();
+  let unreviewedRecords = 0;
+  let unreviewedBlocks = 0;
   let eventCount = 0;
 
   for (const envelope of envelopes) {
     const envelopeType = lower(envelope?.type);
+    if (!['assistant', 'user', 'result'].includes(envelopeType)) {
+      unreviewedRecords += 1;
+      unreviewedTypes.add(boundedName(envelope?.type) || '(missing record type)');
+      continue;
+    }
     if (envelopeType === 'assistant') {
       for (const block of claudeBlocks(envelope)) {
         const blockType = lower(block?.type);
@@ -164,11 +172,20 @@ function projectClaude(value, detail) {
         } else if (blockType === 'text' && typeof block?.text === 'string' && block.text.trim()) {
           eventCount += 1;
           claims.push('The record contains an assistant-authored message; its contents are not treated as proof.');
+        } else if (!['tool_use', 'text'].includes(blockType)) {
+          unreviewedBlocks += 1;
+          unreviewedTypes.add(boundedName(block?.type) || '(missing content type)');
         }
       }
     } else if (envelopeType === 'user') {
       for (const block of claudeBlocks(envelope)) {
-        if (lower(block?.type) !== 'tool_result') continue;
+        const blockType = lower(block?.type);
+        if (blockType === 'text') continue;
+        if (blockType !== 'tool_result') {
+          unreviewedBlocks += 1;
+          unreviewedTypes.add(boundedName(block?.type) || '(missing content type)');
+          continue;
+        }
         const call = block?.tool_use_id ? calls.get(block.tool_use_id) : null;
         const failed = block?.is_error === true;
         if (call) {
@@ -195,8 +212,16 @@ function projectClaude(value, detail) {
     if (status === 'MISSING') attention.push('A Claude Code tool call has no matching result in the supplied record.');
   }
 
+  const unreviewedCount = unreviewedRecords + unreviewedBlocks;
+  if (unreviewedCount) {
+    const typeSummary = detail === 'names' && unreviewedTypes.size
+      ? ` Structural types: ${[...unreviewedTypes].slice(0, 8).join(', ')}.`
+      : '';
+    attention.push(`${unreviewedCount} Claude Code ${unreviewedCount === 1 ? 'record or content block was' : 'records or content blocks were'} not interpreted and must be checked in the raw transcript.${typeSummary}`);
+  }
+
   if (eventCount === 0) throw new Error('No projectable Claude Code stream events were found.');
-  return { format: 'claude-code-stream-json', eventCount, observed, claims, attention };
+  return { format: 'claude-code-stream-json', eventCount, observed, claims, attention, unreviewedRecords, unreviewedBlocks, unreviewedTypes: [...unreviewedTypes].slice(0, 8) };
 }
 
 function anyValue(value) {
@@ -297,6 +322,7 @@ function renderHandback(projection, sourceLabel) {
     `- Source: \`${markdown(sourceLabel)}\``,
     `- Detected format: \`${projection.format}\``,
     `- Terminal events or spans: ${projection.eventCount}`,
+    ...(projection.format === 'claude-code-stream-json' ? [`- Unreviewed Claude records or content blocks: ${(projection.unreviewedRecords || 0) + (projection.unreviewedBlocks || 0)}`] : []),
     `- Projection limit: first ${MAX_EVENTS} items${projection.truncated ? ' (output truncated)' : ''}`,
     '',
     '## Observed activity',

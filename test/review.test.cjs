@@ -79,6 +79,28 @@ test('treats Claude Code error result subtypes as review signals', () => {
   assert.match(projection.attention.join(' '), /final result records an error/);
 });
 
+test('flags Claude Code schema drift without leaking unknown content in safe mode', () => {
+  const record = [
+    { type: 'system', subtype: 'private-system-value' },
+    { type: 'assistant', message: { content: [
+      { type: 'thinking', thinking: 'private reasoning' },
+      { type: 'tool_use', id: 'a', name: 'Bash', input: { command: 'private command' } },
+    ] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'a', content: 'private result' }] } },
+  ];
+  const safe = projectRecord(record, 'safe');
+  const handback = renderHandback(safe, 'supplied record');
+  assert.equal(safe.unreviewedRecords, 1);
+  assert.equal(safe.unreviewedBlocks, 1);
+  assert.equal(safe.verdict, 'review_needed');
+  assert.match(handback, /Unreviewed Claude records or content blocks: 2/);
+  assert.match(handback, /2 Claude Code records or content blocks were not interpreted/);
+  assert.doesNotMatch(handback, /system|thinking|private-system|private reasoning/i);
+
+  const names = projectRecord(record, 'names');
+  assert.match(names.attention.join(' '), /Structural types: system, thinking/);
+});
+
 test('rejects unsupported JSON instead of inventing an interpretation', () => {
   assert.throws(() => projectRecord({ hello: 'world' }), /Unsupported record/);
 });
