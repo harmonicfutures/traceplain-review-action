@@ -1,0 +1,5 @@
+{"type":"assistant","timestamp":"2026-08-13T01:00:00Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu-1","name":"Write","input":{"file_path":"private-example.md","content":"synthetic"}}]}}
+{"type":"user","timestamp":"2026-08-13T01:00:01Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu-1","content":"private result text","is_error":false}]}}
+{"type":"assistant","timestamp":"2026-08-13T01:00:02Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu-2","name":"Bash","input":{"command":"private-command-argument"}}]}}
+{"type":"user","timestamp":"2026-08-13T01:00:03Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu-2","content":"12 tests passed","is_error":false}]}}
+{"type":"assistant","timestamp":"2026-08-13T01:00:04Z","message":{"role":"assistant","content":[{"type":"text","text":"Private completion claim."}]}}

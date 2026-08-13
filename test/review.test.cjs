@@ -39,6 +39,46 @@ test('does not interpret an unset OTLP status as success', () => {
   assert.doesNotMatch(markdown, /private-service|private operation/);
 });
 
+test('pairs Claude Code tool uses with results and suppresses imported content in safe mode', () => {
+  const source = path.join(__dirname, 'fixtures', 'claude-code-stream.jsonl');
+  const { projection, handback } = reviewFile(source, { detail: 'safe' });
+  assert.equal(projection.format, 'claude-code-stream-json');
+  assert.equal(projection.eventCount, 3);
+  assert.equal(projection.verdict, 'review_needed');
+  assert.equal(projection.observed.filter((item) => /tool call/.test(item)).length, 2);
+  assert.match(projection.attention.join(' '), /file-oriented/);
+  assert.match(handback, /assistant-authored message/);
+  assert.doesNotMatch(handback, /private-example|private result|private-command|Private completion/);
+  assert.doesNotMatch(handback, /claude-code-stream\.jsonl/);
+});
+
+test('flags missing and failed Claude Code tool results', () => {
+  const record = [
+    { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'a', name: 'Bash', input: { command: 'secret' } }] } },
+    { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'b', name: 'Read', input: { file_path: 'secret.txt' } }] } },
+    { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'a', content: 'secret failure', is_error: true }] } },
+  ];
+  const projection = projectRecord(record, 'names');
+  assert.equal(projection.format, 'claude-code-stream-json');
+  assert.equal(projection.eventCount, 2);
+  assert.equal(projection.verdict, 'review_needed');
+  assert.match(projection.observed.join(' '), /Bash/);
+  assert.match(projection.attention.join(' '), /records an error/);
+  assert.match(projection.attention.join(' '), /no matching result/);
+});
+
+test('treats Claude Code error result subtypes as review signals', () => {
+  const projection = projectRecord({
+    type: 'result',
+    subtype: 'error_max_turns',
+    is_error: false,
+    result: 'private failure summary',
+  });
+  assert.equal(projection.format, 'claude-code-stream-json');
+  assert.equal(projection.verdict, 'review_needed');
+  assert.match(projection.attention.join(' '), /final result records an error/);
+});
+
 test('rejects unsupported JSON instead of inventing an interpretation', () => {
   assert.throws(() => projectRecord({ hello: 'world' }), /Unsupported record/);
 });
