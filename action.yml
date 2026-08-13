@@ -23,9 +23,13 @@ inputs:
     required: false
     default: '10485760'
   fail-on-review:
-    description: Set true to fail the step when the supplied record contains an explicit failure, denial, change, or unset OTLP status.
+    description: Set true to fail the step when the supplied record requires human review.
     required: false
     default: 'false'
+  step-summary:
+    description: Write the bounded handback to the native GitHub Actions job summary.
+    required: false
+    default: 'true'
 
 outputs:
   handback-path:
@@ -36,6 +40,8 @@ outputs:
     description: codex-exec-jsonl, claude-code-stream-json, or opentelemetry-otlp-json.
   event-count:
     description: Number of terminal events or spans projected into the handback.
+  summary-written:
+    description: true when the handback was appended to the GitHub Actions job summary.
 
 runs:
   using: node24
